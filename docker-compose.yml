@@ -20,7 +20,7 @@ services:
       retries: 10
 
   n8n:
-    image: ghcr.io/n8n-io/n8n:1.115.3
+    image: ghcr.io/n8n-io/n8n:1.121.0
     container_name: recruiting-n8n
     ports:
       - "${N8N_PORT:-5678}:5678"
