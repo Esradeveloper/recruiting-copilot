@@ -9,17 +9,19 @@ CREATE TABLE jobs (
     slug        TEXT NOT NULL UNIQUE,
     title       TEXT NOT NULL,
     description TEXT NOT NULL,
+    embedding   vector(384),
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Scoring criteria per job. Embedding column is added on Day 3 (RAG).
+-- Shared criteria library. RAG picks the relevant criteria for a job by
+-- comparing the job description embedding with each criterion embedding.
+-- 384 dimensions = BAAI/bge-small-en-v1.5 (fastembed, runs locally).
 CREATE TABLE criteria (
     id          SERIAL PRIMARY KEY,
-    job_id      INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-    name        TEXT NOT NULL,
+    name        TEXT NOT NULL UNIQUE,
     description TEXT NOT NULL,
     weight      NUMERIC(3,2) NOT NULL CHECK (weight > 0 AND weight <= 1),
-    UNIQUE (job_id, name)
+    embedding   vector(384)
 );
 
 -- One row per incoming application. No personal data here: the CV is
@@ -42,6 +44,7 @@ CREATE TABLE evaluations (
     model          TEXT NOT NULL,
     prompt_version TEXT NOT NULL,
     attempts       SMALLINT NOT NULL DEFAULT 1,
+    criteria       JSONB NOT NULL,  -- criteria retrieved by RAG, incl. similarity
     score          SMALLINT CHECK (score BETWEEN 0 AND 100),
     recommendation recommendation,
     result         JSONB,          -- full validated output (strengths, gaps, reasoning, criteria_scores)
