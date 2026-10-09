@@ -2,14 +2,18 @@
 
 import hashlib
 import logging
+import os
+import uuid
+from urllib.parse import parse_qs
 
+import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, Form, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, Form, HTTPException, Request, UploadFile
 from starlette.concurrency import run_in_threadpool
 
 load_dotenv()
 
-from app import db  # noqa: E402
+from app import db, slack  # noqa: E402
 from app.pdf_text import PdfTextError, extract_text  # noqa: E402
 from app.rag import MIN_CRITERIA, retrieve_criteria  # noqa: E402
 from app.schemas import EvaluateResponse  # noqa: E402
@@ -64,5 +68,56 @@ async def evaluate(job_slug: str = Form(...), cv: UploadFile = ...) -> EvaluateR
         **result.model_dump(),
         application_id=application_id,
         evaluation_id=evaluation_id,
+        job_title=title,
         criteria=criteria,
     )
+
+
+def post_to_slack(response_url: str, message: dict) -> None:
+    try:
+        httpx.post(response_url, json=message, timeout=10).raise_for_status()
+    except httpx.HTTPError as e:
+        log.error("slack response_url update failed: %s", type(e).__name__)
+
+
+@app.post("/slack/interactions")
+async def slack_interactions(request: Request, background: BackgroundTasks) -> dict:
+    """Receives button clicks from Slack and stores the human decision."""
+    signing_secret = os.environ.get("SLACK_SIGNING_SECRET")
+    if not signing_secret:
+        raise HTTPException(503, "SLACK_SIGNING_SECRET not configured")
+
+    body = await request.body()
+    try:
+        slack.verify_signature(
+            signing_secret,
+            request.headers.get("X-Slack-Request-Timestamp", ""),
+            body,
+            request.headers.get("X-Slack-Signature", ""),
+        )
+    except slack.SlackRequestError as e:
+        log.warning("rejected slack request: %s", e)
+        raise HTTPException(401, "invalid slack signature") from e
+
+    try:
+        click = slack.parse_button_click(parse_qs(body.decode())["payload"][0])
+        uuid.UUID(click.evaluation_id)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(400, "unsupported slack payload") from e
+
+    try:
+        with db.connect() as conn:
+            decision, created = db.insert_decision(conn, click.evaluation_id, click.decision, click.user_id)
+    except LookupError as e:
+        raise HTTPException(404, str(e)) from e
+
+    log.info("decision evaluation=%s decision=%s by=%s created=%s",
+             click.evaluation_id, decision, click.user_id, created)
+    if created:
+        message = slack.decided_message(click.blocks, decision, click.user_id)
+    else:
+        message = {"response_type": "ephemeral", "replace_original": False,
+                   "text": f"Hier wurde bereits entschieden: {decision}"}
+    # Slack expects an answer within 3 seconds; update the message afterwards.
+    background.add_task(post_to_slack, click.response_url, message)
+    return {}

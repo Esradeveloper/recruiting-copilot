@@ -55,5 +55,6 @@ class ScoringResult(BaseModel):
 
 class EvaluateResponse(ScoringResult):
     application_id: str
+    job_title: str
     evaluation_id: str
     criteria: list[Criterion]

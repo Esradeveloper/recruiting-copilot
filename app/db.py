@@ -53,3 +53,28 @@ def insert_evaluation(
         ),
     ).fetchone()
     return str(row[0])
+
+
+def insert_decision(
+    conn: psycopg.Connection, evaluation_id: str, decision: str, decided_by: str
+) -> tuple[str, bool]:
+    """Store a human decision. Returns (decision, created); the first decision wins."""
+    row = conn.execute("SELECT application_id FROM evaluations WHERE id = %s", (evaluation_id,)).fetchone()
+    if row is None:
+        raise LookupError(f"unknown evaluation: {evaluation_id}")
+    application_id = row[0]
+
+    # Serialise concurrent clicks on the same application.
+    conn.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (str(application_id),))
+    existing = conn.execute(
+        "SELECT decision FROM decisions WHERE application_id = %s ORDER BY decided_at LIMIT 1",
+        (application_id,),
+    ).fetchone()
+    if existing:
+        return existing[0], False
+
+    conn.execute(
+        "INSERT INTO decisions (application_id, evaluation_id, decision, decided_by) VALUES (%s, %s, %s, %s)",
+        (application_id, evaluation_id, decision, decided_by),
+    )
+    return decision, True

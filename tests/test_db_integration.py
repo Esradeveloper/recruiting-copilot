@@ -80,3 +80,19 @@ def test_evaluations_are_append_only(conn):
     db.insert_evaluation(conn, app_id, [], failed)
     with pytest.raises(psycopg.errors.RaiseException, match="append-only"):
         conn.execute("UPDATE evaluations SET error = 'changed' WHERE application_id = %s", (app_id,))
+
+
+def test_first_decision_wins(conn):
+    jid = job_id(conn, "backend-engineer")
+    app_id = db.insert_application(conn, jid, "c" * 64)
+    failed = ScoringResult(status=EvaluationStatus.error, model="m", prompt_version="v1", attempts=1, error="x")
+    eval_id = db.insert_evaluation(conn, app_id, [], failed)
+
+    assert db.insert_decision(conn, eval_id, "advance", "U1") == ("advance", True)
+    assert db.insert_decision(conn, eval_id, "reject", "U2") == ("advance", False)
+    assert conn.execute("SELECT count(*) FROM decisions WHERE application_id = %s", (app_id,)).fetchone()[0] == 1
+
+
+def test_decision_for_unknown_evaluation(conn):
+    with pytest.raises(LookupError):
+        db.insert_decision(conn, "00000000-0000-0000-0000-000000000000", "advance", "U1")
