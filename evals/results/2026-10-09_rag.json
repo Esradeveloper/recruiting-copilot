@@ -1,0 +1,42 @@
+{
+  "meta": {
+    "date": "2026-10-09",
+    "model": "claude-sonnet-5",
+    "prompt_version": "v2",
+    "repeats": 3,
+    "cost_usd": 0.0,
+    "budget_usd": 1.5,
+    "stopped_by_budget": false
+  },
+  "rag": [
+    {
+      "job": "ai-automation-engineer",
+      "recall": 1.0,
+      "precision": 0.7142857142857143,
+      "missed": [],
+      "extra": [
+        "api_design",
+        "devops_cloud"
+      ]
+    },
+    {
+      "job": "backend-engineer",
+      "recall": 0.8,
+      "precision": 1.0,
+      "missed": [
+        "automated_testing"
+      ],
+      "extra": []
+    },
+    {
+      "job": "recruiting-coordinator",
+      "recall": 0.75,
+      "precision": 1.0,
+      "missed": [
+        "languages"
+      ],
+      "extra": []
+    }
+  ],
+  "scoring": []
+}

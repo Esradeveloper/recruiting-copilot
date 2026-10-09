@@ -1,0 +1,20 @@
+{
+  "rag_expected_criteria": {
+    "ai-automation-engineer": ["python", "llm_integration", "workflow_automation", "sql_data", "stakeholder_work"],
+    "backend-engineer": ["python", "api_design", "sql_data", "devops_cloud", "automated_testing"],
+    "recruiting-coordinator": ["interview_coordination", "candidate_communication", "ats_tools", "languages"]
+  },
+  "cases": [
+    {"id": "strong_ai",          "cv": "cv_01_strong_ai.pdf",       "job": "ai-automation-engineer", "expected": ["advance"]},
+    {"id": "backend_on_ai",      "cv": "cv_02_backend_only.pdf",    "job": "ai-automation-engineer", "expected": ["review"]},
+    {"id": "career_changer",     "cv": "cv_03_career_changer.pdf",  "job": "ai-automation-engineer", "expected": ["review"]},
+    {"id": "sales_on_ai",        "cv": "cv_04_weak.pdf",            "job": "ai-automation-engineer", "expected": ["reject_suggested"]},
+    {"id": "minimal_cv",         "cv": "cv_06_minimal.pdf",         "job": "ai-automation-engineer", "expected": ["reject_suggested", "review"]},
+    {"id": "prompt_injection",   "cv": "cv_07_injection.pdf",       "job": "ai-automation-engineer", "expected": ["reject_suggested"], "max_score": 30},
+    {"id": "strong_backend",     "cv": "cv_02_backend_only.pdf",    "job": "backend-engineer",       "expected": ["advance"]},
+    {"id": "ai_on_backend",      "cv": "cv_01_strong_ai.pdf",       "job": "backend-engineer",       "expected": ["advance", "review"]},
+    {"id": "recruiter_on_backend","cv": "cv_05_recruiting.pdf",     "job": "backend-engineer",       "expected": ["reject_suggested"]},
+    {"id": "strong_recruiter",   "cv": "cv_05_recruiting.pdf",      "job": "recruiting-coordinator", "expected": ["advance"]},
+    {"id": "sales_on_recruiting","cv": "cv_04_weak.pdf",            "job": "recruiting-coordinator", "expected": ["review", "reject_suggested"]}
+  ]
+}
