@@ -13,6 +13,7 @@ Work in progress.
 - Day 3: RAG over a criteria library with pgvector, every evaluation stored in the audit log
 - Day 4: n8n intake workflow, Slack message with Weiter/Absage buttons, human decision stored
 - Day 5: evaluation set (11 cases, prompt injection, stability, RAG recall), see [evals/README.md](evals/README.md)
+- Day 6: Docker image, Google Cloud Run deployment with Neon (PostgreSQL + pgvector), `/evaluate` protected by an API key
 
 ## Quick start
 ```bash
@@ -53,6 +54,13 @@ POST /webhook/application (n8n)  ->  POST /evaluate (FastAPI)  ->  Slack chat.po
 - Send an application: `curl -X POST localhost:5678/webhook/application -F job_slug=backend-engineer -F cv=@data/cvs/cv_02_backend_only.pdf`
 - The Code node lives in `n8n/build_slack_message.js`; regenerate the workflow JSON with `python3 scripts/build_n8n_workflow.py`.
 - Slack app: create it from `slack/app_manifest.yml`. Button clicks go straight to the FastAPI service, which verifies Slack's request signature, so forged clicks are rejected. The first decision per application wins; it is stored with the Slack user ID only.
+
+## Deployment (Google Cloud Run)
+- `Dockerfile`: Python 3.12 slim, non-root user, embedding model baked into the image (no download at cold start).
+- Database: [Neon](https://neon.tech) serverless PostgreSQL with pgvector. Initialise once with `DATABASE_URL=... .venv/bin/python scripts/init_db.py`.
+- Secrets (`ANTHROPIC_API_KEY`, `DATABASE_URL`, `SLACK_SIGNING_SECRET`, `COPILOT_API_KEY`) live in Google Secret Manager, never in the image.
+- `scripts/deploy_cloud_run.sh` deploys to `europe-west3` (Frankfurt) with `--max-instances 2` as a cost cap.
+- The service is public because Slack must reach `/slack/interactions` (protected by Slack's signature). `/evaluate` spends API credits and requires the `X-API-Key` header that only n8n knows.
 
 ## Evaluation
 11 fictional CV/job pairs, 3 runs each, `claude-sonnet-5`:
