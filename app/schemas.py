@@ -15,6 +15,7 @@ class Criterion(BaseModel):
     name: str
     description: str
     weight: float = Field(gt=0, le=1)
+    similarity: float | None = None  # set when retrieved via RAG
 
 
 class CriterionScore(BaseModel):
@@ -50,3 +51,9 @@ class ScoringResult(BaseModel):
     attempts: int
     evaluation: Evaluation | None = None
     error: str | None = None
+
+
+class EvaluateResponse(ScoringResult):
+    application_id: str
+    evaluation_id: str
+    criteria: list[Criterion]
