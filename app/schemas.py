@@ -51,6 +51,8 @@ class ScoringResult(BaseModel):
     attempts: int
     evaluation: Evaluation | None = None
     error: str | None = None
+    input_tokens: int = 0   # summed over all attempts, for cost tracking
+    output_tokens: int = 0
 
 
 class EvaluateResponse(ScoringResult):
