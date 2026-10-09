@@ -11,6 +11,7 @@ Work in progress.
 - Day 1: repository, Docker, PostgreSQL schema, fictional test data
 - Day 2: PDF text extraction, Claude scoring with schema-validated JSON and one retry
 - Day 3: RAG over a criteria library with pgvector, every evaluation stored in the audit log
+- Day 4: n8n intake workflow, Slack message with Weiter/Absage buttons, human decision stored
 
 ## Quick start
 ```bash
@@ -35,6 +36,23 @@ Run the tests (no API calls, Claude is faked; DB tests roll back and skip if the
 
 Regenerate the fictional CV PDFs: `.venv/bin/python scripts/make_test_cvs.py`
 
+## Workflow (n8n + Slack)
+```
+POST /webhook/application (n8n)  ->  POST /evaluate (FastAPI)  ->  Slack chat.postMessage
+                                                                      |  button click
+                                       POST /slack/interactions  <----+
+                                       (signature check, decision stored, message updated)
+```
+- `docker compose up -d` also starts n8n on http://localhost:5678. Import and activate the workflow:
+  ```bash
+  docker compose exec n8n n8n import:workflow --input=/workflows/recruiting_intake.json
+  docker compose exec n8n n8n list:workflow               # note the id
+  docker compose exec n8n n8n update:workflow --id=<id> --active=true && docker compose restart n8n
+  ```
+- Send an application: `curl -X POST localhost:5678/webhook/application -F job_slug=backend-engineer -F cv=@data/cvs/cv_02_backend_only.pdf`
+- The Code node lives in `n8n/build_slack_message.js`; regenerate the workflow JSON with `python3 scripts/build_n8n_workflow.py`.
+- Slack app: create it from `slack/app_manifest.yml`. Button clicks go straight to the FastAPI service, which verifies Slack's request signature, so forged clicks are rejected. The first decision per application wins; it is stored with the Slack user ID only.
+
 ## How scoring works
 0. RAG: the job description and every criterion in a shared library are embedded locally with `BAAI/bge-small-en-v1.5` (fastembed, 384 dims, no data leaves the service). pgvector returns the top 7 criteria with cosine similarity >= 0.60; fewer than 3 matches is an error.
 1. `pypdf` extracts the CV text (no OCR; scanned PDFs are rejected).
@@ -49,4 +67,4 @@ Regenerate the fictional CV PDFs: `.venv/bin/python scripts/make_test_cvs.py`
 | `jobs`, `criteria` | Job postings and a shared library of weighted criteria, both with embeddings |
 | `applications` | Incoming application, CV referenced by SHA-256 only |
 | `evaluations` | AI recommendation incl. model, prompt version, retrieved criteria, status, full JSON (append-only) |
-| `decisions` | Human decision from Slack, by Slack user ID (append-only) |
+| `decisions` | Human decision from Slack, by Slack user ID, first click wins (append-only) |
