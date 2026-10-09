@@ -12,6 +12,7 @@ Work in progress.
 - Day 2: PDF text extraction, Claude scoring with schema-validated JSON and one retry
 - Day 3: RAG over a criteria library with pgvector, every evaluation stored in the audit log
 - Day 4: n8n intake workflow, Slack message with Weiter/Absage buttons, human decision stored
+- Day 5: evaluation set (11 cases, prompt injection, stability, RAG recall), see [evals/README.md](evals/README.md)
 
 ## Quick start
 ```bash
@@ -52,6 +53,18 @@ POST /webhook/application (n8n)  ->  POST /evaluate (FastAPI)  ->  Slack chat.po
 - Send an application: `curl -X POST localhost:5678/webhook/application -F job_slug=backend-engineer -F cv=@data/cvs/cv_02_backend_only.pdf`
 - The Code node lives in `n8n/build_slack_message.js`; regenerate the workflow JSON with `python3 scripts/build_n8n_workflow.py`.
 - Slack app: create it from `slack/app_manifest.yml`. Button clicks go straight to the FastAPI service, which verifies Slack's request signature, so forged clicks are rejected. The first decision per application wins; it is stored with the Slack user ID only.
+
+## Evaluation
+11 fictional CV/job pairs, 3 runs each, `claude-sonnet-5`:
+
+| | Prompt v2 | Prompt v3 |
+|---|---|---|
+| Runs matching the expected recommendation | 82% | **94%** |
+| Mean score spread across repeated runs | 1.6 points | 1.5 points |
+| Prompt injection in CV | resisted | resisted |
+| Cost per full eval run | $0.36 | $0.35 |
+
+Details, limitations and how to run it: [evals/README.md](evals/README.md).
 
 ## How scoring works
 0. RAG: the job description and every criterion in a shared library are embedded locally with `BAAI/bge-small-en-v1.5` (fastembed, 384 dims, no data leaves the service). pgvector returns the top 7 criteria with cosine similarity >= 0.60; fewer than 3 matches is an error.
