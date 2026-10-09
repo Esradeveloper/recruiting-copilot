@@ -1,0 +1,4 @@
+# Notizen
+
+## Tag 1 (2026-10-09)
+Wir nutzen das offizielle Image `pgvector/pgvector:pg16`, damit PostgreSQL und pgvector ohne eigene Installation zusammen laufen; Schema und Seed-Daten werden beim ersten Start automatisch geladen. Die Tabellen `evaluations` und `decisions` sind per Trigger append-only, damit das Audit-Log nachträglich nicht verändert werden kann – wichtig für Nachvollziehbarkeit im Hochrisiko-Bereich Recruiting. In der Datenbank stehen keine Namen: Lebensläufe werden nur über ihren SHA-256-Hash referenziert, Slack-Entscheider nur über ihre User-ID. Auch fehlgeschlagene KI-Bewertungen werden gespeichert (`status = invalid_output/error`), damit Fehler sichtbar bleiben. Die Embedding-Spalte für RAG kommt erst an Tag 3, weil wir dann das Embedding-Modell (und damit die Vektor-Dimension) festlegen.
