@@ -19,5 +19,25 @@ services:
       timeout: 3s
       retries: 10
 
+  n8n:
+    image: ghcr.io/n8n-io/n8n:1.115.3
+    container_name: recruiting-n8n
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    environment:
+      GENERIC_TIMEZONE: Europe/Berlin
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      # Lets workflows read the variables below via $env (no secrets in workflow JSON).
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      COPILOT_API_URL: http://host.docker.internal:8000
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
+      SLACK_CHANNEL_ID: ${SLACK_CHANNEL_ID}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - n8ndata:/home/node/.n8n
+      - ./n8n:/workflows:ro
+
 volumes:
   pgdata:
+  n8ndata:

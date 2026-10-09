@@ -1,0 +1,169 @@
+{
+  "name": "Recruiting intake",
+  "nodes": [
+    {
+      "id": "a1",
+      "name": "Application webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "application",
+        "responseMode": "responseNode",
+        "options": {
+          "binaryPropertyName": "cv"
+        }
+      },
+      "webhookId": "7c2f0a52-3b1e-4f7e-9d61-0a1b2c3d4e5f"
+    },
+    {
+      "id": "a2",
+      "name": "Evaluate CV",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.COPILOT_API_URL }}/evaluate",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "job_slug",
+              "value": "={{ $json.body.job_slug }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "cv",
+              "inputDataFieldName": "cv0"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "a3",
+      "name": "Build Slack message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// n8n Code node: turn the /evaluate response into a Slack Block Kit message.\n// Source of the \"Build Slack message\" node in recruiting_intake.json.\nconst r = $input.first().json;\nconst channel = $env.SLACK_CHANNEL_ID;\nconst jobSlug = $('Application webhook').first().json.body.job_slug;\n\nconst RECOMMENDATION = {\n  advance: ':large_green_circle: Weiter',\n  review: ':large_yellow_circle: Prüfen',\n  reject_suggested: ':red_circle: Absage vorgeschlagen',\n};\nconst bullets = (items) => (items && items.length ? items.map((i) => `• ${i}`).join('\\n') : '–');\n\n// /evaluate failed before an evaluation was stored (e.g. unreadable PDF).\nif (!r.evaluation_id) {\n  const reason = r.detail || (r.error && r.error.message) || 'unbekannter Fehler';\n  return [{ json: {\n    response: { status: 'failed', detail: reason },\n    slack: { channel, text: `Bewerbung für ${jobSlug} konnte nicht verarbeitet werden: ${reason}` },\n  } }];\n}\n\nconst blocks = [\n  { type: 'header', text: { type: 'plain_text', text: `Neue Bewerbung: ${r.job_title}` } },\n];\n\nif (r.status === 'ok') {\n  const e = r.evaluation;\n  blocks.push(\n    { type: 'section', fields: [\n      { type: 'mrkdwn', text: `*Score*\\n${e.score} / 100` },\n      { type: 'mrkdwn', text: `*KI-Empfehlung*\\n${RECOMMENDATION[e.recommendation]}` },\n    ] },\n    { type: 'section', text: { type: 'mrkdwn', text: `*Stärken*\\n${bullets(e.strengths)}` } },\n    { type: 'section', text: { type: 'mrkdwn', text: `*Lücken*\\n${bullets(e.gaps)}` } },\n    { type: 'section', text: { type: 'mrkdwn', text: `*Begründung*\\n${e.reasoning}` } },\n  );\n} else {\n  blocks.push({ type: 'section', text: { type: 'mrkdwn',\n    text: `:warning: *KI-Bewertung fehlgeschlagen* (${r.status}). Bitte den Lebenslauf manuell prüfen.` } });\n}\n\nblocks.push(\n  { type: 'context', elements: [{ type: 'mrkdwn',\n    text: `Die KI gibt nur eine Empfehlung – die Entscheidung triffst du. ` +\n          `Modell ${r.model}, Prompt ${r.prompt_version}, Bewerbung \\`${r.application_id}\\`` }] },\n  { type: 'actions', elements: [\n    { type: 'button', style: 'primary', action_id: 'decision_advance', value: r.evaluation_id,\n      text: { type: 'plain_text', text: 'Weiter' } },\n    { type: 'button', style: 'danger', action_id: 'decision_reject', value: r.evaluation_id,\n      text: { type: 'plain_text', text: 'Absage' },\n      confirm: {\n        title: { type: 'plain_text', text: 'Absage bestätigen' },\n        text: { type: 'mrkdwn', text: 'Diese Entscheidung wird im Audit-Log gespeichert.' },\n        confirm: { type: 'plain_text', text: 'Absage' },\n        deny: { type: 'plain_text', text: 'Abbrechen' },\n      } },\n  ] },\n);\n\nconst score = r.status === 'ok' ? ` (Score ${r.evaluation.score})` : '';\nreturn [{ json: {\n  response: { status: r.status, application_id: r.application_id, evaluation_id: r.evaluation_id },\n  slack: { channel, text: `Neue Bewerbung: ${r.job_title}${score}`, blocks },\n} }];\n"
+      }
+    },
+    {
+      "id": "a4",
+      "name": "Post to Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SLACK_BOT_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.slack) }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "a5",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ...$('Build Slack message').first().json.response, slack_ok: $json.ok === true, slack_error: $json.error || null }) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Application webhook": {
+      "main": [
+        [
+          {
+            "node": "Evaluate CV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate CV": {
+      "main": [
+        [
+          {
+            "node": "Build Slack message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Slack message": {
+      "main": [
+        [
+          {
+            "node": "Post to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Slack": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "active": false
+}
