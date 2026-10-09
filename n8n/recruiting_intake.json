@@ -1,4 +1,5 @@
 {
+  "id": "ZheycBW7owPtupFN",
   "name": "Recruiting intake",
   "nodes": [
     {
@@ -32,6 +33,15 @@
       "parameters": {
         "method": "POST",
         "url": "={{ $env.COPILOT_API_URL }}/evaluate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.COPILOT_API_KEY }}"
+            }
+          ]
+        },
         "sendBody": true,
         "contentType": "multipart-form-data",
         "bodyParameters": {
@@ -165,5 +175,6 @@
     "executionOrder": "v1"
   },
   "pinData": {},
-  "active": false
+  "active": false,
+  "versionId": "9c01a1d7-d28a-500d-9e4c-01839d0bd7cc"
 }

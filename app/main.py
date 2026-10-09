@@ -1,6 +1,7 @@
 """FastAPI service: receives a CV PDF and returns an AI recommendation."""
 
 import hashlib
+import hmac
 import logging
 import os
 import uuid
@@ -8,7 +9,7 @@ from urllib.parse import parse_qs
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, FastAPI, Form, HTTPException, Request, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, Form, Header, HTTPException, Request, UploadFile
 from starlette.concurrency import run_in_threadpool
 
 load_dotenv()
@@ -32,7 +33,16 @@ def health() -> dict:
     return {"status": "ok"}
 
 
-@app.post("/evaluate", response_model=EvaluateResponse)
+def require_api_key(x_api_key: str = Header(default="")) -> None:
+    """/evaluate spends API credits, so only callers with the shared key (n8n) may use it."""
+    expected = os.environ.get("COPILOT_API_KEY")
+    if not expected:
+        raise HTTPException(503, "COPILOT_API_KEY not configured")
+    if not hmac.compare_digest(x_api_key, expected):
+        raise HTTPException(401, "invalid API key")
+
+
+@app.post("/evaluate", response_model=EvaluateResponse, dependencies=[Depends(require_api_key)])
 async def evaluate(job_slug: str = Form(...), cv: UploadFile = ...) -> EvaluateResponse:
     pdf_bytes = await cv.read(MAX_UPLOAD_BYTES + 1)
     if len(pdf_bytes) > MAX_UPLOAD_BYTES:

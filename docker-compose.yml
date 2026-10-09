@@ -29,7 +29,9 @@ services:
       N8N_DIAGNOSTICS_ENABLED: "false"
       # Lets workflows read the variables below via $env (no secrets in workflow JSON).
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
-      COPILOT_API_URL: http://host.docker.internal:8000
+      # Local API by default; set COPILOT_API_URL in .env to use the Cloud Run URL.
+      COPILOT_API_URL: ${COPILOT_API_URL:-http://host.docker.internal:8000}
+      COPILOT_API_KEY: ${COPILOT_API_KEY}
       SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
       SLACK_CHANNEL_ID: ${SLACK_CHANNEL}
     extra_hosts:

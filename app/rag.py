@@ -1,5 +1,6 @@
 """Retrieve the scoring criteria relevant to a job via pgvector similarity search."""
 
+import os
 from functools import lru_cache
 
 import numpy as np
@@ -16,7 +17,8 @@ MIN_CRITERIA = 3
 
 @lru_cache(maxsize=1)
 def _model() -> TextEmbedding:
-    return TextEmbedding(EMBEDDING_MODEL)
+    # FASTEMBED_CACHE_DIR lets the Docker image ship the model instead of downloading it at runtime.
+    return TextEmbedding(EMBEDDING_MODEL, cache_dir=os.environ.get("FASTEMBED_CACHE_DIR"))
 
 
 def embed(texts: list[str]) -> list[np.ndarray]:

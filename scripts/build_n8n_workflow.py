@@ -5,6 +5,7 @@ Keeps the Code node source reviewable as a .js file. Run after editing the .js:
 """
 
 import json
+import uuid
 from pathlib import Path
 
 N8N_DIR = Path(__file__).resolve().parent.parent / "n8n"
@@ -28,6 +29,8 @@ def main() -> None:
              webhookId="7c2f0a52-3b1e-4f7e-9d61-0a1b2c3d4e5f"),
         node("a2", "Evaluate CV", "n8n-nodes-base.httpRequest", 4.2, 240,
              {"method": "POST", "url": "={{ $env.COPILOT_API_URL }}/evaluate",
+              "sendHeaders": True, "headerParameters": {"parameters": [
+                  {"name": "X-API-Key", "value": "={{ $env.COPILOT_API_KEY }}"}]},
               "sendBody": True, "contentType": "multipart-form-data",
               "bodyParameters": {"parameters": [
                   {"name": "job_slug", "value": "={{ $json.body.job_slug }}"},
@@ -49,6 +52,7 @@ def main() -> None:
               "options": {}}),
     ]
     workflow = {
+        "id": "ZheycBW7owPtupFN",  # fixed so re-importing updates the same workflow
         "name": "Recruiting intake",
         "nodes": nodes,
         "connections": chain(*(n["name"] for n in nodes)),
@@ -56,6 +60,10 @@ def main() -> None:
         "pinData": {},
         "active": False,
     }
+    # n8n needs a versionId to update an existing workflow; derive it from the
+    # content so the file only changes when the workflow does.
+    content = json.dumps(workflow, sort_keys=True)
+    workflow["versionId"] = str(uuid.uuid5(uuid.NAMESPACE_URL, content))
     out = N8N_DIR / "recruiting_intake.json"
     out.write_text(json.dumps(workflow, indent=2, ensure_ascii=False) + "\n")
     print(f"wrote {out.name}")
