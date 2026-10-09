@@ -31,7 +31,7 @@ services:
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       COPILOT_API_URL: http://host.docker.internal:8000
       SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
-      SLACK_CHANNEL_ID: ${SLACK_CHANNEL_ID}
+      SLACK_CHANNEL_ID: ${SLACK_CHANNEL}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
