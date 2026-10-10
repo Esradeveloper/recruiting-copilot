@@ -9,7 +9,7 @@ from urllib.parse import parse_qs
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, Depends, FastAPI, Form, Header, HTTPException, Request, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, Form, Header, HTTPException, Request, Response, UploadFile
 from starlette.concurrency import run_in_threadpool
 
 load_dotenv()
@@ -91,7 +91,7 @@ def post_to_slack(response_url: str, message: dict) -> None:
 
 
 @app.post("/slack/interactions")
-async def slack_interactions(request: Request, background: BackgroundTasks) -> dict:
+async def slack_interactions(request: Request, background: BackgroundTasks) -> Response:
     """Receives button clicks from Slack and stores the human decision."""
     signing_secret = os.environ.get("SLACK_SIGNING_SECRET")
     if not signing_secret:
@@ -129,5 +129,7 @@ async def slack_interactions(request: Request, background: BackgroundTasks) -> d
         message = {"response_type": "ephemeral", "replace_original": False,
                    "text": f"Hier wurde bereits entschieden: {decision}"}
     # Slack expects an answer within 3 seconds; update the message afterwards.
+    # The ack itself must have an empty body - a JSON body like "{}" makes Slack
+    # try to parse it as a message payload and show a "could not process" warning.
     background.add_task(post_to_slack, click.response_url, message)
-    return {}
+    return Response(status_code=200)
