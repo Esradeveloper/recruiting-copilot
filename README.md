@@ -13,7 +13,7 @@ All data in this repository is fictional.
 - Day 4: n8n intake workflow, Slack message with Weiter/Absage buttons, human decision stored
 - Day 5: evaluation set (11 cases, prompt injection, stability, RAG recall), see [evals/README.md](evals/README.md)
 - Day 6: Docker image, Google Cloud Run deployment with Neon (PostgreSQL + pgvector), `/evaluate` protected by an API key
-- Day 7: this README, architecture diagram, demo video
+- Day 7: this README, architecture diagram, demo (see [Demo](#demo))
 
 ## Architecture
 ```mermaid
@@ -29,6 +29,16 @@ flowchart LR
     G -->|update message| F
 ```
 A human always makes the final call in Slack; the service only ever proposes a recommendation with reasoning.
+
+## Demo
+End-to-end run against the live Cloud Run deployment: an application comes in, Claude scores it against the role's criteria, Slack gets a message with a recommendation and reasoning, and a human clicks "Weiter" (advance) to make the final call.
+
+![Demo: application scored, posted to Slack, human decision](demo/demo.gif)
+
+```bash
+curl -X POST localhost:5678/webhook/application \
+  -F job_slug=ai-automation-engineer -F cv=@data/cvs/cv_01_strong_ai.pdf
+```
 
 ## Quick start
 ```bash
