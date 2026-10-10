@@ -7,13 +7,28 @@ AI-assisted CV screening workflow: an application arrives via n8n webhook, a Pyt
 All data in this repository is fictional.
 
 ## Status
-Work in progress.
 - Day 1: repository, Docker, PostgreSQL schema, fictional test data
 - Day 2: PDF text extraction, Claude scoring with schema-validated JSON and one retry
 - Day 3: RAG over a criteria library with pgvector, every evaluation stored in the audit log
 - Day 4: n8n intake workflow, Slack message with Weiter/Absage buttons, human decision stored
 - Day 5: evaluation set (11 cases, prompt injection, stability, RAG recall), see [evals/README.md](evals/README.md)
 - Day 6: Docker image, Google Cloud Run deployment with Neon (PostgreSQL + pgvector), `/evaluate` protected by an API key
+- Day 7: this README, architecture diagram, demo video
+
+## Architecture
+```mermaid
+flowchart LR
+    A[Applicant] -->|CV + job slug| B[n8n webhook]
+    B -->|POST /evaluate, X-API-Key| C[FastAPI service]
+    C -->|top-7 criteria by similarity| D[(Neon Postgres + pgvector)]
+    C -->|score each criterion| E[Claude]
+    C -->|store evaluation, append-only| D
+    C -->|chat.postMessage| F[Slack #recruiting]
+    F -->|Weiter / Absage click| G[POST /slack/interactions]
+    G -->|verify Slack signature, store decision| D
+    G -->|update message| F
+```
+A human always makes the final call in Slack; the service only ever proposes a recommendation with reasoning.
 
 ## Quick start
 ```bash
@@ -61,6 +76,10 @@ POST /webhook/application (n8n)  ->  POST /evaluate (FastAPI)  ->  Slack chat.po
 - Secrets (`ANTHROPIC_API_KEY`, `DATABASE_URL`, `SLACK_SIGNING_SECRET`, `COPILOT_API_KEY`) live in Google Secret Manager, never in the image.
 - `scripts/deploy_cloud_run.sh` deploys to `europe-west3` (Frankfurt) with `--max-instances 2` as a cost cap.
 - The service is public because Slack must reach `/slack/interactions` (protected by Slack's signature). `/evaluate` spends API credits and requires the `X-API-Key` header that only n8n knows.
+- Live demo instance: `https://recruiting-copilot-xrxygmlaha-ey.a.run.app` (may be scaled down between demos to save credits). `GET /health` is public:
+  ```bash
+  curl https://recruiting-copilot-xrxygmlaha-ey.a.run.app/health
+  ```
 
 ## Evaluation
 11 fictional CV/job pairs, 3 runs each, `claude-sonnet-5`:
